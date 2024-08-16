@@ -72,20 +72,21 @@ def images_generator(directory: str, image_load_cap: int = 0, skip_first_images:
             i = i.squeeze(0).movedim(0, -1).numpy()
         if has_alpha:
             i[:,:,-1] = 1 - i[:,:,-1]
-        return i
+        return i, file_path
 
     total_images = len(dir_files)
     processed_images = 0
     pbar = ProgressBar(total_images)
     images =  map(load_image, dir_files)
     try:
-        prev_image = next(images)
+        prev_image, prev_filename = next(images)
         while True:
-            next_image = next(images)
-            yield prev_image
+            next_image, next_filename = next(images)
+            yield prev_image, prev_filename
             processed_images += 1
             pbar.update_absolute(processed_images, total_images)
             prev_image = next_image
+            prev_filename = next_filename
     except StopIteration:
         pass
     if meta_batch is not None:
@@ -107,7 +108,9 @@ def load_images(directory: str, image_load_cap: int = 0, skip_first_images: int 
 
     if meta_batch is not None:
         gen = itertools.islice(gen, meta_batch.frames_per_batch)
-    images = torch.from_numpy(np.fromiter(gen, np.dtype((np.float32, (height, width, 3 + has_alpha)))))
+    images_with_filenames = list(gen)
+    images = torch.from_numpy(np.fromiter((x[0] for x in images_with_filenames), np.dtype((np.float32, (height, width, 3 + has_alpha)))))
+    filenames = [x[1] for x in images_with_filenames]
     if has_alpha:
         #tensors are not continuous. Rewrite will be required if this is an issue
         masks = images[:,:,:,3]
@@ -116,11 +119,6 @@ def load_images(directory: str, image_load_cap: int = 0, skip_first_images: int 
         masks = torch.zeros((images.size(0), 64, 64), dtype=torch.float32, device="cpu")
     if len(images) == 0:
         raise FileNotFoundError(f"No images could be loaded from directory '{directory}'.")
-    # Get filenames
-    dir_files = get_sorted_dir_files_from_directory(directory, skip_first_images, select_every_nth)
-    if image_load_cap > 0:
-        dir_files = dir_files[:image_load_cap]
-    filenames = [os.path.basename(f) for f in dir_files[:len(images)]]
     return images, masks, images.size(0), filenames
 
 class LoadImagesFromDirectoryUpload:
@@ -147,7 +145,7 @@ class LoadImagesFromDirectoryUpload:
         }
     
     RETURN_TYPES = ("IMAGE", "MASK", "INT", "STRING")
-    RETURN_NAMES = ("IMAGE", "MASK", "frame_count", "filenames")
+    RETURN_NAMES = ("IMAGE", "MASK", "frame_count", "filename")
     FUNCTION = "load_images"
 
     CATEGORY = "Video Helper Suite 🎥🅥🅗🅢"
@@ -186,7 +184,7 @@ class LoadImagesFromDirectoryPath:
         }
     
     RETURN_TYPES = ("IMAGE", "MASK", "INT", "STRING")
-    RETURN_NAMES = ("IMAGE", "MASK", "frame_count", "filenames")
+    RETURN_NAMES = ("IMAGE", "MASK", "frame_count", "filename")
     FUNCTION = "load_images"
 
     CATEGORY = "Video Helper Suite 🎥🅥🅗🅢"
