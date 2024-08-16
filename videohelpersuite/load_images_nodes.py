@@ -116,7 +116,12 @@ def load_images(directory: str, image_load_cap: int = 0, skip_first_images: int 
         masks = torch.zeros((images.size(0), 64, 64), dtype=torch.float32, device="cpu")
     if len(images) == 0:
         raise FileNotFoundError(f"No images could be loaded from directory '{directory}'.")
-    return images, masks, images.size(0)
+    # Get filenames
+    dir_files = get_sorted_dir_files_from_directory(directory, skip_first_images, select_every_nth)
+    if image_load_cap > 0:
+        dir_files = dir_files[:image_load_cap]
+    filenames = [os.path.basename(f) for f in dir_files[:len(images)]]
+    return images, masks, images.size(0), filenames
 
 class LoadImagesFromDirectoryUpload:
     @classmethod
@@ -141,8 +146,8 @@ class LoadImagesFromDirectoryUpload:
             },
         }
     
-    RETURN_TYPES = ("IMAGE", "MASK", "INT")
-    RETURN_NAMES = ("IMAGE", "MASK", "frame_count")
+    RETURN_TYPES = ("IMAGE", "MASK", "INT", "STRING")
+    RETURN_NAMES = ("IMAGE", "MASK", "frame_count", "filenames")
     FUNCTION = "load_images"
 
     CATEGORY = "Video Helper Suite 🎥🅥🅗🅢"
@@ -180,8 +185,8 @@ class LoadImagesFromDirectoryPath:
             },
         }
     
-    RETURN_TYPES = ("IMAGE", "MASK", "INT")
-    RETURN_NAMES = ("IMAGE", "MASK", "frame_count")
+    RETURN_TYPES = ("IMAGE", "MASK", "INT", "STRING")
+    RETURN_NAMES = ("IMAGE", "MASK", "frame_count", "filenames")
     FUNCTION = "load_images"
 
     CATEGORY = "Video Helper Suite 🎥🅥🅗🅢"
